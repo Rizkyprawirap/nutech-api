@@ -1,0 +1,15 @@
+// ignore node_modules
+**/node_modules
+
+// all file with extension .lock
+**/*.lock
+
+// ignore all .env
+.env*
+
+// ignore folder build
+**/.build/*
+**/dist/*
+
+// ignore upload file
+/uploads

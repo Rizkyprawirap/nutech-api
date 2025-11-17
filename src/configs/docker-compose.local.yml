@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: nutech_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nutech
+      POSTGRES_PASSWORD: nutech123
+      POSTGRES_DB: nutech
+      TZ: Asia/Jakarta
+      PGTZ: Asia/Jakarta
+    ports:
+      - "5454:5432"   # host:container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: nutech-stack
