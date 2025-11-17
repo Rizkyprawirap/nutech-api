@@ -6,7 +6,6 @@ export function QueryGetMembershipBalance() {
          users_balance
       WHERE 
          user_id = $1
-      FOR UPDATE;
    `;
 }
 

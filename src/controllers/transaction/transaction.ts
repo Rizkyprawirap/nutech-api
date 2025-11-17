@@ -57,10 +57,9 @@ export default class TransactionController implements ITransactionController {
     try {
       await db.query("BEGIN");
 
-      const selectForUpdateSQL = QueryGetMembershipBalance();
-      const lockRes = await db.query(selectForUpdateSQL, [request.user_id]);
+      const lockRes = await db.query(QueryLockUserBalance(), [request.user_id]);
+
       if (lockRes.rowCount === 0) {
-        await db.query("ROLLBACK");
         throw NewError("Saldo tidak ditemukan", 404);
       }
 
