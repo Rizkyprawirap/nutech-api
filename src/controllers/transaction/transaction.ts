@@ -30,13 +30,12 @@ export default class TransactionController implements ITransactionController {
     const response: GetBalanceResponse = {
       balance: 0,
     };
-    const db = await pool.connect();
 
     try {
       const query = QueryGetMembershipBalance();
       const values = [request.user_id];
 
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
 
       if (result.rowCount === 0) {
         throw NewError("Saldo tidak ditemukan", 404);
@@ -46,19 +45,24 @@ export default class TransactionController implements ITransactionController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 
   async addBalance(request: AddBalanceRequest): Promise<AddBalanceResponse> {
+    const db = await pool.connect();
     const response: AddBalanceResponse = {
       balance: 0,
     };
-    const db = await pool.connect();
 
     try {
       await db.query("BEGIN");
+
+      const selectForUpdateSQL = QueryGetMembershipBalance();
+      const lockRes = await db.query(selectForUpdateSQL, [request.user_id]);
+      if (lockRes.rowCount === 0) {
+        await db.query("ROLLBACK");
+        throw NewError("Saldo tidak ditemukan", 404);
+      }
 
       const updateBalanceQuery = QueryAddToBalance();
       const updateBalanceValues = [request.top_up_amount, request.user_id];
@@ -131,12 +135,14 @@ export default class TransactionController implements ITransactionController {
       ]);
 
       if (balanceRes.rowCount === 0) {
+        await db.query("ROLLBACK");
         throw NewError("Saldo tidak ditemukan", 404);
       }
 
       const oldBalance = Number(balanceRes.rows[0].balance);
 
       if (oldBalance < price) {
+        await db.query("ROLLBACK");
         throw NewError("Saldo tidak mencukupi", 400);
       }
 
@@ -156,6 +162,11 @@ export default class TransactionController implements ITransactionController {
         service.service_name,
         price,
       ]);
+
+      if (insertTxRes.rowCount === 0) {
+        await db.query("ROLLBACK");
+        throw NewError("Gagal menyimpan transaksi", 500);
+      }
 
       const transactionId = insertTxRes.rows[0].id;
 
@@ -189,8 +200,6 @@ export default class TransactionController implements ITransactionController {
   async getTransactionHistory(
     request: GetTransactionHistoryRequest,
   ): Promise<GetTransactionHistoryResponse> {
-    const db = await pool.connect();
-
     const response: GetTransactionHistoryResponse = {
       limit: request.limit,
       offset: request.offset,
@@ -200,8 +209,7 @@ export default class TransactionController implements ITransactionController {
     try {
       const query = QueryGetTransactionHistory();
       const values = [request.user_id, request.limit, request.offset];
-
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
 
       response.records = result.rows.map((row) => ({
         invoice_number: row.invoice_number,
@@ -214,8 +222,6 @@ export default class TransactionController implements ITransactionController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 }

@@ -8,7 +8,10 @@ const isProduction = process.env.NODE_ENV === "production";
 export const pool = isProduction
   ? new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+      keepAlive: true,
     })
   : new Pool({
       host: process.env.DB_HOST || "localhost",

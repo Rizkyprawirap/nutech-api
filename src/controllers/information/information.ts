@@ -9,7 +9,6 @@ import { GetBannerResponse, GetServiceResponse } from "./types";
 
 export default class InformationController implements IInformationController {
   async getBannerList(): Promise<GetBannerResponse> {
-    const db = await pool.connect();
     const response: GetBannerResponse = {
       data: [],
     };
@@ -18,7 +17,7 @@ export default class InformationController implements IInformationController {
       const query = QueryGetInformationBanner();
       const values = [10];
 
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
 
       if (result.rowCount === 0) {
         throw NewError("Gagal mendapatkan banners", 500);
@@ -33,14 +32,10 @@ export default class InformationController implements IInformationController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 
   async getServiceList(): Promise<GetServiceResponse> {
-    const db = await pool.connect();
-
     const response: GetServiceResponse = {
       data: [],
     };
@@ -50,7 +45,7 @@ export default class InformationController implements IInformationController {
       const query = QueryGetInformationService();
       const values = [10];
 
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
 
       if (result.rowCount === 0) {
         throw NewError("Gagal mendapatkan banners", 500);
@@ -66,8 +61,6 @@ export default class InformationController implements IInformationController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 }

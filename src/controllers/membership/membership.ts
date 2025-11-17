@@ -29,8 +29,8 @@ export default class MembershipController implements IMembershipController {
   async registerMembership(
     request: RegisterRequest,
   ): Promise<RegisterResponse> {
-    const hashedPassword = await bcrypt.hash(request.password, 10);
     const db = await pool.connect();
+    const hashedPassword = await bcrypt.hash(request.password, 8);
     const response: RegisterResponse = {};
     try {
       await db.query("BEGIN");
@@ -43,21 +43,17 @@ export default class MembershipController implements IMembershipController {
         request.first_name,
         request.last_name,
       ];
-
       const result = await db.query(insertUserQuery, userValues);
 
       if (result.rowCount === 0) {
-        await db.query("ROLLBACK");
         throw NewError("Gagal membuat user", 500);
       }
 
       const insertBalanceQuery = QueryInsertMembershipBalance();
       const balanceValues = [id, 0];
-
       const balanceResult = await db.query(insertBalanceQuery, balanceValues);
 
       if (balanceResult.rowCount === 0) {
-        await db.query("ROLLBACK");
         throw NewError("Gagal membuat saldo user", 500);
       }
 
@@ -73,8 +69,6 @@ export default class MembershipController implements IMembershipController {
   }
 
   async loginMembership(request: LoginRequest): Promise<LoginResponse> {
-    const db = await pool.connect();
-
     const response: LoginResponse = {
       token: "",
     };
@@ -82,7 +76,7 @@ export default class MembershipController implements IMembershipController {
     try {
       const query = QueryGetMembershipByEmail();
       const values = [request.email];
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
 
       if (result.rowCount === 0) {
         throw NewError("Email atau password salah", 401);
@@ -105,15 +99,12 @@ export default class MembershipController implements IMembershipController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 
   async updateProfileMembership(
     request: UpdateProfileMembershipRequest,
   ): Promise<UpdateProfileMembershipResponse> {
-    const client = await pool.connect();
     const response: UpdateProfileMembershipResponse = {
       email: "",
       first_name: "",
@@ -121,8 +112,6 @@ export default class MembershipController implements IMembershipController {
       profile_image: "",
     };
     try {
-      await client.query("BEGIN");
-
       const fields: string[] = [];
       const values: any[] = [];
 
@@ -143,19 +132,16 @@ export default class MembershipController implements IMembershipController {
       values.push(request.email);
 
       const updateQuery = QueryUpdateMembershipProfile(fields);
-      const updateQueryResult = await client.query(updateQuery, values);
+      const updateQueryResult = await pool.query(updateQuery, values);
 
       if (updateQueryResult.rowCount === 0) {
-        await client.query("ROLLBACK");
         throw NewError("User tidak ditemukan", 404);
       }
 
       const profileQuery = QueryGetMembershipWithProfileImageByID();
-      const profileQueryResult = await client.query(profileQuery, [
+      const profileQueryResult = await pool.query(profileQuery, [
         request.email,
       ]);
-
-      await client.query("COMMIT");
 
       const user = profileQueryResult.rows[0];
 
@@ -166,17 +152,13 @@ export default class MembershipController implements IMembershipController {
 
       return response;
     } catch (err: any) {
-      await client.query("ROLLBACK");
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      client.release();
     }
   }
 
   async getProfileMembership(
     request: GetProfileMembershipRequest,
   ): Promise<GetProfileMembershipResponse> {
-    const db = await pool.connect();
     const response: GetProfileMembershipResponse = {
       email: "",
       first_name: "",
@@ -186,7 +168,7 @@ export default class MembershipController implements IMembershipController {
     try {
       const query = QueryGetMembershipWithProfileImageByID();
       const values = [request.email];
-      const result = await db.query(query, values);
+      const result = await pool.query(query, values);
       const user = result.rows[0];
 
       response.email = user.email;
@@ -197,15 +179,12 @@ export default class MembershipController implements IMembershipController {
       return response;
     } catch (err: any) {
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      db.release();
     }
   }
 
   async updateProfileImageMembership(
     request: UpdateProfileImageMembershipRequest,
   ): Promise<UpdateProfileImageMembershipResponse> {
-    const client = await pool.connect();
     const response: UpdateProfileImageMembershipResponse = {
       email: "",
       first_name: "",
@@ -213,8 +192,6 @@ export default class MembershipController implements IMembershipController {
       profile_image: "",
     };
     try {
-      await client.query("BEGIN");
-
       if (!request.file) {
         throw NewError("File tidak ditemukan", 400);
       }
@@ -222,19 +199,13 @@ export default class MembershipController implements IMembershipController {
       const url = `https://yoururlapi.com/${request.file.originalname}`;
 
       const queryUpdate = QueryUpdateMembershipProfileImage();
-      const updateResult = await client.query(queryUpdate, [
-        url,
-        request.email,
-      ]);
+      const updateResult = await pool.query(queryUpdate, [url, request.email]);
 
       if (updateResult.rowCount === 0) {
-        await client.query("ROLLBACK");
         throw NewError("User tidak ditemukan", 404);
       }
 
-      await client.query("COMMIT");
-
-      const profileRes = await client.query(
+      const profileRes = await pool.query(
         QueryGetMembershipWithProfileImageByID(),
         [request.email],
       );
@@ -248,10 +219,7 @@ export default class MembershipController implements IMembershipController {
 
       return response;
     } catch (err: any) {
-      await client.query("ROLLBACK");
       throw NewError(err.message ?? "Internal server error", 500);
-    } finally {
-      client.release();
     }
   }
 }
