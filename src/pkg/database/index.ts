@@ -1,18 +1,24 @@
 import { Pool } from "pg";
 import dotenv from "dotenv";
-import { AppEnv } from "../env/env";
 
 dotenv.config();
 
-export const pool = new Pool({
-  host: AppEnv.DB_HOST || "localhost",
-  user: AppEnv.DB_USER || "nutech",
-  password: AppEnv.DB_PASS || "nutech123",
-  database: AppEnv.DB_NAME || "nutech",
-  port: Number(AppEnv.DB_PORT) || 5454,
-});
+const isProduction = process.env.NODE_ENV === "production";
+
+export const pool = isProduction
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : new Pool({
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "nutech",
+      password: process.env.DB_PASS || "nutech123",
+      database: process.env.DB_NAME || "nutech",
+      port: Number(process.env.DB_PORT) || 5432,
+    });
 
 pool
   .connect()
-  .then(() => console.log("Connected to Database"))
-  .catch((err: unknown) => console.error("[DATABASE] Connection Error:", err));
+  .then(() => console.log("[DATABASE] Connected"))
+  .catch((err) => console.error("[DATABASE] Connection Error:", err));
